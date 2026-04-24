@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* ← ده بيقول لـ Tailwind v4 يستخدم class strategy للـ dark mode */
+@custom-variant dark (&:where(.dark, .dark *));
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+html:not(.dark) body {
+  background-color: #ffffff;
+  color: #111827;
+}
+
+html.dark body {
+  background-color: #030712;
+  color: #f3f4f6;
+}
+
