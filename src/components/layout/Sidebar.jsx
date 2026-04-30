@@ -18,7 +18,7 @@ const ADMIN_NAV = [
   { to: '/dashboard',       icon: LayoutDashboard, label: 'Dashboard',      end: true },
   { to: '/profile',         icon: User,            label: 'Profile' },
   { to: '/admin/users',     icon: User,            label: 'Manage Users' },
-  { to: '/marketplace',  icon: Store,           label: 'Manage Items' },
+  { to: '/marketplaceى',  icon: Store,           label: 'Manage Items' },
   { to: '/admin/swaps',     icon: Repeat,          label: 'Manage Swaps' },
   { to: '/admin/settings',  icon: Settings,        label: 'Admin Settings' },
 ];

@@ -90,7 +90,7 @@ const ProductCard = ({
   const canSell = isSeller(user) && isOwner;
   const canSwap = user?.activeRole === 'swapper' && !isOwner && isSwappable;
   const canCreate = user?.activeRole === 'creator' && !isOwner;
-  const canDelete = isAdmin(user) || user?.id === seller?.id;
+  const canDelete = isAdmin(user);
 
   // Product object for operations
   const product = {
