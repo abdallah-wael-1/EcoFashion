@@ -1,7 +1,7 @@
 ﻿﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
-import { ShoppingCart, Store, ArrowLeft, ShieldCheck, Truck, Leaf, ChevronRight } from "lucide-react";
+import { ShoppingCart, Store, ArrowLeft, ShieldCheck, Truck, Leaf, ChevronRight, Wallet, AlertTriangle } from "../utils/icons";
 import SectionTitle from "../components/common/SectionTitle";
 import ConfirmModal from "../components/common/ConfirmModal";
 
@@ -59,21 +59,45 @@ const EmptyCheckout = () => (
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { cart, cartTotal, checkout } = useAppContext();
+  const { cart, cartTotal, checkout, wallet, checkWalletBalance, topUpWallet, addNotification } = useAppContext();
 
   const [status,       setStatus]       = useState('idle');
   const [order,        setOrder]        = useState(null);
   const [placeModal,   setPlaceModal]   = useState(false);
+  const [insufficientBalanceModal, setInsufficientBalanceModal] = useState(false);
+
+  const hasEnoughBalance = checkWalletBalance(cartTotal);
+  const balanceShortage = cartTotal - (wallet?.balance || 0);
 
   const handleCheckout = async () => {
+    if (!hasEnoughBalance) {
+      setInsufficientBalanceModal(true);
+      return;
+    }
+    
     setStatus('loading');
     try {
       const completedOrder = await checkout();
       setOrder(completedOrder);
       setStatus('success');
-    } catch {
+    } catch (error) {
       setStatus('idle');
+      addNotification({
+        title: 'Checkout failed',
+        message: error.message || 'Something went wrong. Please try again.',
+        type: 'error',
+      });
     }
+  };
+
+  const handleTopUp = (amount) => {
+    topUpWallet(amount);
+    setInsufficientBalanceModal(false);
+    addNotification({
+      title: 'Wallet topped up!',
+      message: `EGP ${amount} has been added to your wallet.`,
+      type: 'success',
+    });
   };
 
   if (status === 'success' && order) {
@@ -154,14 +178,52 @@ const Checkout = () => {
                 </div>
               </div>
 
-              {/* Payment note */}
-              <div className="mx-4 mb-4 rounded-xl bg-amber-50 dark:bg-amber-900/15
-                border border-amber-100 dark:border-amber-800 px-4 py-3 flex items-center gap-3">
-                <span className="text-amber-500 text-lg shrink-0">💳</span>
-                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-                  Payment integration coming soon — orders are confirmed instantly for now.
-                </p>
+              {/* Wallet Payment Info */}
+              <div className={`mx-4 mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 ${
+                hasEnoughBalance 
+                  ? 'bg-green-50 dark:bg-green-900/15 border-green-100 dark:border-green-800'
+                  : 'bg-red-50 dark:bg-red-900/15 border-red-100 dark:border-red-800'
+              }`}>
+                <Wallet size={20} className={`shrink-0 ${hasEnoughBalance ? 'text-green-600' : 'text-red-600'}`} />
+                <div className="flex-1">
+                  <p className={`text-sm font-medium leading-relaxed ${
+                    hasEnoughBalance ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+                  }`}>
+                    {hasEnoughBalance ? (
+                      <>Payment via Wallet • Available: EGP {wallet?.balance || 0}</>
+                    ) : (
+                      <>Insufficient balance • Available: EGP {wallet?.balance || 0} • Need: EGP {balanceShortage}</>
+                    )}
+                  </p>
+                </div>
               </div>
+
+              {!hasEnoughBalance && (
+                <div className="mx-4 mb-4 rounded-xl bg-blue-50 dark:bg-blue-900/15 border border-blue-100 dark:border-blue-800 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle size={20} className="text-blue-600 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-400 mb-2">
+                        Need to top up your wallet?
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleTopUp(balanceShortage)}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Top Up EGP {balanceShortage}
+                        </button>
+                        <button
+                          onClick={() => navigate('/wallet')}
+                          className="px-3 py-1 border border-blue-600 text-blue-600 dark:text-blue-400 text-sm font-medium rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                        >
+                          Manage Wallet
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Trust row */}
               <div className="flex items-center justify-center gap-4 mb-4 text-xs text-gray-400 dark:text-gray-500">
@@ -174,16 +236,21 @@ const Checkout = () => {
               <div className="px-4 pb-5 space-y-2">
                 <button
                   onClick={() => setPlaceModal(true)}
-                  disabled={status === 'loading'}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold
-                    bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700
+                  disabled={status === 'loading' || !hasEnoughBalance}
+                  className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold
+                    ${hasEnoughBalance 
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                      : 'bg-gray-400 cursor-not-allowed'
+                    }
                     text-white shadow-md hover:shadow-lg hover:-translate-y-0.5
                     disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0
-                    transition-all duration-200 cursor-pointer">
+                    transition-all duration-200 cursor-pointer`}>
                   {status === 'loading' ? (
                     <><span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Processing…</>
+                  ) : hasEnoughBalance ? (
+                    <>Pay with Wallet · EGP {cartTotal?.toLocaleString()} <ChevronRight size={16} /></>
                   ) : (
-                    <>Place Order · EGP {cartTotal?.toLocaleString()} <ChevronRight size={16} /></>
+                    <>Insufficient Balance <AlertTriangle size={16} /></>
                   )}
                 </button>
 
@@ -213,6 +280,18 @@ const Checkout = () => {
         message={`Confirm your order of ${cart.length} item${cart.length !== 1 ? 's' : ''} for EGP ${cartTotal?.toLocaleString()}. This action will clear your cart.`}
         confirmText="Place Order"
         cancelText="Not yet"
+      />
+
+      {/* Insufficient balance modal */}
+      <ConfirmModal
+        open={insufficientBalanceModal}
+        onClose={() => setInsufficientBalanceModal(false)}
+        onConfirm={() => handleTopUp(balanceShortage)}
+        variant="warning"
+        title="Insufficient Wallet Balance"
+        message={`You need EGP ${balanceShortage} more to complete this purchase. Would you like to top up your wallet now?`}
+        confirmText={`Top Up EGP ${balanceShortage}`}
+        cancelText="Cancel"
       />
     </div>
   );

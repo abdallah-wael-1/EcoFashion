@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
-import { ShoppingCart, Heart, ArrowRight, Trash2, Store, PackageOpen, ExternalLink } from "lucide-react";
+import { ShoppingCart, Heart, ArrowRight, Trash2, Store, PackageOpen, ExternalLink } from "../utils/icons";
 import SectionTitle from "../components/common/SectionTitle";
 
 // ─── WishlistItem ──────────────────────────────────────────────────────────────
@@ -138,11 +138,33 @@ const EmptyWishlist = () => (
   </div>
 );
 
+// ─── Buyer Only ──────────────────────────────────────────────────────────────
+
+const BuyerOnly = () => (
+  <div className="flex flex-col items-center justify-center py-20 text-center">
+    <div className="h-20 w-20 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-5">
+      <Heart size={32} className="text-gray-300 dark:text-gray-600" />
+    </div>
+    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Wishlist is for Buyers Only</h3>
+    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mb-6 leading-relaxed">
+      Switch to Buyer role to save items to your wishlist.
+    </p>
+    <Link to="/marketplace"
+      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold
+        bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700
+        text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
+      <Store size={16} /> Browse Marketplace
+    </Link>
+  </div>
+);
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 const Wishlist = () => {
-  const { wishlist, toggleWishlist, moveToCart, isInCart } = useAppContext();
+  const { wishlist, toggleWishlist, moveToCart, isInCart, user } = useAppContext();
   const count = wishlist.length;
+
+  if (user?.activeRole !== 'buyer') return <BuyerOnly />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4">

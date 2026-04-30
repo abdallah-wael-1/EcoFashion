@@ -1,6 +1,6 @@
 // src/components/layout/BottomNav.jsx — mobile: icon + label, thumb-friendly, no sidebar
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Store, Repeat2, Shirt, User } from 'lucide-react';
+import { LayoutDashboard, Store, Repeat2, Shirt, User } from '../../utils/icons';
 
 const ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Home' },

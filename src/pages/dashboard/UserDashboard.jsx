@@ -1,160 +1,235 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ShoppingBag, Store, Repeat2, Leaf, ArrowUpRight, LayoutDashboard, Palette } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
+import { ShoppingBag, Heart, Wallet, Star } from "../../utils/icons";
+import RoleSwitcher from "../../components/dashboard/RoleSwitcher";
+import { useRoles } from "../../hooks/useRoles";
+import { roleMetadata, roleStats } from "../../config/rolesConfig";
 
-const card = "rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm transition-shadow duration-200 hover:shadow-md";
+// ─── Shared card style ────────────────────────────────────────────────────────
+const cardBase =
+  "rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-sm transition-shadow duration-200 hover:shadow-md dark:hover:shadow-lg";
 
-// الـ tabs بتظهر حسب roles اليوزر
-const buildTabs = (user) => {
-  const tabs = [{ id: "overview", label: " Overview" }];
-  if (!user) return tabs;
-  if (user.canBuy    || user.roles?.includes("buyer"))   tabs.push({ id: "buying",    label: " Buying" });
-  if (user.canSell   || user.roles?.includes("seller"))  tabs.push({ id: "selling",   label: " Selling" });
-  if (user.canCreate || user.roles?.includes("creator")) tabs.push({ id: "upcycling", label: " Upcycling" });
-  // swaps متاح للكل
-  tabs.push({ id: "swaps", label: " Swaps" });
-  return tabs;
-};
-
+// ─── Component ────────────────────────────────────────────────────────────────
 const UserDashboard = () => {
-  const { user, ecoCredits, trustScore } = useAppContext();
-  const tabs = buildTabs(user);
-  const [activeTab, setActiveTab] = useState("overview");
+  const {
+    ecoCredits = 0,
+    trustScore = 0,
+    cartCount = 0,
+    wishlistCount = 0,
+    wallet,
+    notifications = [],
+  } = useAppContext();
 
-  const roleLabels = user?.roles?.map(r =>
-    r === "buyer" ? " Buyer" : r === "seller" ? " Seller" : " Creator"
-  ).join("  ") || " Buyer";
+  const { user, activeRole, roles } = useRoles();
+
+  const activeRoleMeta  = roleMetadata[activeRole] || roleMetadata.buyer;
+  const ActiveRoleIcon  = activeRoleMeta.icon;
+  const walletBalance   = wallet?.balance ?? 0;
+  const latestNotifications = notifications.slice(0, 4);
+
+  // Merge live data into role stats
+  const activeRoleStats = (roleStats[activeRole] || []).map((item) => {
+    if (item.label === "Wishlist items")  return { ...item, value: String(wishlistCount) };
+    if (item.label === "Total spent")     return { ...item, value: `EGP ${Math.max(0, 1000 - walletBalance)}` };
+    if (item.label === "EcoCredits earned") return { ...item, value: String(ecoCredits) };
+    return item;
+  });
 
   return (
     <div className="space-y-6">
-      {/* Header card */}
-      <div className={`${card} p-6`}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl
-              bg-gradient-to-br from-green-500 to-emerald-600 text-lg font-bold text-white shadow-sm">
-              {user?.name?.slice(0, 2).toUpperCase() ?? ""}
+
+      {/* ── Welcome header ── */}
+      <div className={`${cardBase} overflow-hidden`}>
+        <div className="border-b border-gray-200 dark:border-gray-800 bg-gradient-to-br from-green-50 to-emerald-50
+          dark:from-gray-800 dark:to-gray-800 px-4 py-5 sm:px-6 sm:py-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+            {/* Avatar + role badges */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600
+                flex items-center justify-center text-white font-bold text-lg select-none">
+                {user?.name?.charAt(0)?.toUpperCase() || "U"}
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Welcome back, {user?.name || "User"}!
+                </h1>
+
+                {/* Assigned roles */}
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Active Roles:</span>
+                  {roles.map((role) => {
+                    const meta = roleMetadata[role] || {};
+                    const RoleIcon = meta.icon;
+                    return (
+                      <span
+                        key={role}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-green-200
+                          bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700
+                          dark:border-green-800 dark:bg-green-900/30 dark:text-green-400"
+                      >
+                        {RoleIcon && <RoleIcon size={12} />}
+                        {meta.name || role}
+                      </span>
+                    );
+                  })}
+                </div>
+
+                {/* Active role context */}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Current Context:</span>
+                  {roles.map((role) => (
+                    <span
+                      key={role}
+                      className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                        role === activeRole
+                          ? "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400"
+                          : "border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                      }`}
+                    >
+                      {roleMetadata[role]?.name || role}
+                      {role === activeRole ? " (Now)" : ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{user?.name ?? "Member"}</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email}</p>
-              <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-0.5">{roleLabels}</p>
+
+            {/* Role switcher */}
+            <div className="flex w-full items-center justify-center gap-3 sm:w-auto sm:justify-end">
+              <RoleSwitcher />
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/30 px-3 py-1 text-xs font-semibold text-green-700 dark:text-green-400">
-               {ecoCredits ?? 0} EcoCredits
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-400">
-               {trustScore ?? 0} Trust
-            </span>
           </div>
         </div>
       </div>
 
-      {/* Tabs  only show tabs relevant to user''s roles */}
-      <div className="flex gap-1 overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 p-1">
-        {tabs.map(tab => (
-          <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
-            className={`min-w-0 shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 cursor-pointer
-              ${activeTab === tab.id
-                ? "bg-white dark:bg-gray-900 text-green-700 dark:text-green-400 shadow-sm ring-1 ring-gray-200 dark:ring-gray-700"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300"}`}>
-            {tab.label}
-          </button>
+      {/* ── Account snapshot ── */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {[
+          { label: "Cart Items",      value: String(cartCount),          icon: ShoppingBag },
+          { label: "Wishlist",        value: String(wishlistCount),       icon: Heart },
+          { label: "EcoCredits",      value: String(ecoCredits),          icon: Star },
+          { label: "Wallet Balance",  value: `EGP ${walletBalance}`,      icon: Wallet },
+        ].map(({ label, value, icon: Icon }) => (
+          <div key={label} className={`${cardBase} p-4`}>
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800 text-green-600 dark:text-green-400">
+              <Icon size={18} strokeWidth={2} />
+            </div>
+            <p className="text-2xl font-semibold tabular-nums tracking-tight text-gray-900 dark:text-gray-100">{value}</p>
+            <p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
+          </div>
         ))}
       </div>
 
-      {/* Tab content */}
-      {activeTab === "overview" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {[
-              { label: "Items bought", value: "0", icon: ShoppingBag, show: user?.canBuy    || user?.roles?.includes("buyer") },
-              { label: "Items sold",   value: "0", icon: Store,       show: user?.canSell   || user?.roles?.includes("seller") },
-              { label: "Swaps done",  value: "0", icon: Repeat2,     show: true },
-              { label: "CO saved",   value: "0 kg", icon: Leaf,     show: true },
-            ].filter(s => s.show).map(stat => (
-              <div key={stat.label} className={`${card} p-4`}>
-                <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800 text-green-600 dark:text-green-400">
-                  <stat.icon size={18} strokeWidth={2} />
+      {/* ── Role context ── */}
+      <div className="grid gap-4 lg:grid-cols-3">
+
+        {/* Role stats */}
+        <div className={`${cardBase} p-6 lg:col-span-2`}>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Current Role Overview</h3>
+
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-gray-200 dark:border-gray-700
+            bg-gray-50/70 dark:bg-gray-800/40 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg
+              bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+              <ActiveRoleIcon size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">{activeRoleMeta.name}</p>
+              <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{activeRoleMeta.description}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {activeRoleStats.map(({ label, value, icon: Icon }) => (
+              <div key={label} className="rounded-xl border border-gray-100 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900">
+                <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-green-600 dark:bg-gray-800 dark:text-green-400">
+                  <Icon size={16} />
                 </div>
-                <p className="text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{stat.value}</p>
-                <p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">{stat.label}</p>
+                <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{value}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
               </div>
             ))}
           </div>
+        </div>
 
-          <div className={`${card} p-6`}>
-            <div className="mb-4 flex items-center gap-2">
-              <LayoutDashboard size={16} className="text-gray-400 dark:text-gray-500" />
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Quick actions</h2>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                { label: "Browse marketplace", to: "/marketplace", desc: "Find items",     show: true },
-                { label: "List an item",        to: "/add-product", desc: "Earn credits",   show: user?.canSell   || user?.roles?.includes("seller") },
-                { label: "Upcycle item",        to: "/upcycle-product", desc: "Create & transform",  show: user?.canCreate || user?.roles?.includes("creator") },
-                { label: "Swap requests",       to: "/swap-requests", desc: "Trade items",  show: true },
-                { label: "Digital closet",      to: "/digital-closet", desc: "Your wardrobe", show: true },
-                { label: "Style feed",          to: "/style-feed",  desc: "For you",        show: true },
-              ].filter(a => a.show).map(action => (
-                <Link key={action.label + action.to} to={action.to}
-                  className="group flex flex-col rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 p-4
-                    transition-all duration-200 hover:border-green-200 dark:hover:border-green-700 hover:bg-white dark:hover:bg-gray-900 hover:shadow-sm cursor-pointer">
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{action.label}</span>
-                    <ArrowUpRight size={16} className="text-gray-400 dark:text-gray-500 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-green-600 dark:group-hover:text-green-400" />
-                  </span>
-                  <span className="mt-1 text-xs text-gray-500 dark:text-gray-400">{action.desc}</span>
-                </Link>
+        {/* Role identity sidebar */}
+        <div className={`${cardBase} p-6`}>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Role Identity</h3>
+
+          <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-green-50 to-emerald-50
+            p-4 dark:border-gray-700 dark:from-green-900/20 dark:to-emerald-900/20">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Current Context Role</p>
+            <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{activeRoleMeta.name}</p>
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">{activeRoleMeta.description}</p>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800 dark:bg-blue-900/20">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+              Multi-role Access
+            </p>
+            <p className="mt-1 text-xs text-blue-700/90 dark:text-blue-300/90">
+              You can hold multiple roles simultaneously. Switching context only changes your dashboard view.
+            </p>
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">Assigned Roles</p>
+            <div className="flex flex-wrap gap-1.5">
+              {roles.map((role) => (
+                <span
+                  key={role}
+                  className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold
+                    text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  {roleMetadata[role]?.name || role}
+                </span>
               ))}
             </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {activeTab === "buying" && (
-        <EmptyState icon="" title="No purchases yet"
-          desc="Browse the marketplace to find sustainable pieces."
-          action={{ label: "Browse marketplace", to: "/marketplace" }} />
-      )}
+      {/* ── Activity + health ── */}
+      <div className="grid gap-4 lg:grid-cols-3">
 
-      {activeTab === "selling" && (
-        <EmptyState icon="" title="No listings yet"
-          desc="List your first item and start earning EcoCredits."
-          action={{ label: "Create listing", to: "/add-product" }} />
-      )}
+        <div className={`${cardBase} p-6 lg:col-span-2`}>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Recent Activity</h3>
+          {latestNotifications.length ? (
+            <div className="space-y-3">
+              {latestNotifications.map((n) => (
+                <div
+                  key={n.id}
+                  className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40"
+                >
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{n.title}</p>
+                  <p className="mt-0.5 text-xs text-gray-600 dark:text-gray-400">{n.message}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No activity yet. Use the sidebar to explore features — updates will appear here.
+            </p>
+          )}
+        </div>
 
-      {activeTab === "upcycling" && (
-        <EmptyState icon="" title="No upcycled items yet"
-          desc="Document your upcycling journey and earn more EcoCredits."
-          action={{ label: "Add upcycled item", to: "/add-product" }} />
-      )}
+        <div className={`${cardBase} p-6`}>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Account Health</h3>
+          <div className="space-y-3">
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Trust Score</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{trustScore.toFixed(1)} / 5.0</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Role Coverage</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{roles.length} roles active</p>
+            </div>
+          </div>
+        </div>
 
-      {activeTab === "swaps" && (
-        <EmptyState icon="" title="No swaps yet"
-          desc="Find items to swap from the marketplace."
-          action={{ label: "View swap requests", to: "/swap-requests" }} />
-      )}
+      </div>
     </div>
   );
 };
-
-function EmptyState({ icon, title, desc, action }) {
-  return (
-    <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-10 text-center shadow-sm">
-      <div className="text-4xl mb-4">{icon}</div>
-      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500 dark:text-gray-400">{desc}</p>
-      <Link to={action.to}
-        className="mt-6 inline-flex items-center justify-center rounded-lg bg-green-600
-          px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 transition-colors cursor-pointer">
-        {action.label}
-      </Link>
-    </div>
-  );
-}
 
 export default UserDashboard;

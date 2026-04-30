@@ -106,13 +106,35 @@ const CartItem = ({ item, onRemove, onMoveToWishlist, isWishlisted, index }) => 
   );
 };
 
+// ─── Buyer Only ──────────────────────────────────────────────────────────────
+
+const BuyerOnly = () => (
+  <div className="flex flex-col items-center justify-center py-20 text-center">
+    <div className="h-20 w-20 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-5">
+      <ShoppingCart size={32} className="text-gray-300 dark:text-gray-600" />
+    </div>
+    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Cart is for Buyers Only</h3>
+    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mb-6 leading-relaxed">
+      Switch to Buyer role to access your shopping cart and make purchases.
+    </p>
+    <Link to="/marketplace"
+      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold
+        bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700
+        text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer">
+      <Store size={16} /> Browse Marketplace
+    </Link>
+  </div>
+);
+
 // ─── Main Cart ────────────────────────────────────────────────────────────────
 
 const Cart = () => {
   const navigate = useNavigate();
-  const { cart, cartTotal, removeFromCart, moveToWishlist, isInWishlist } = useAppContext();
+  const { cart, cartTotal, removeFromCart, moveToWishlist, isInWishlist, user } = useAppContext();
   const [checkoutModal, setCheckoutModal] = useState(false);
   const count = cart.length;
+
+  if (user?.activeRole !== 'buyer') return <BuyerOnly />;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8 px-4">

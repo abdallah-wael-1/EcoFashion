@@ -14,12 +14,16 @@ import UserProfile from '../pages/user/UserProfile';
 import Dashboard from '../pages/dashboard/Dashboard';
 import SwapRequests from '../pages/swap/SwapRequests';
 import SwapDetails from '../pages/swap/SwapDetails';
+import CreateSwapOffer from '../pages/swap/CreateSwapOffer';
+import SwapHub from '../pages/swap/SwapHub';
+import SwapProtectedRoute from '../components/auth/SwapProtectedRoute';
 import DigitalCloset from '../pages/user/DigitalCloset';
 import StyleFeed from '../pages/home/StyleFeed';
 import MyListings from '../pages/MyListings';
 import Cart from '../pages/Cart';
 import Wishlist from '../pages/Wishlist';
 import Checkout from '../pages/Checkout';
+import Wallet from '../pages/Wallet';
 import NotFound from '../pages/NotFound';
 import Unauthorized from '../pages/Unauthorized';
 
@@ -41,14 +45,17 @@ const router = createBrowserRouter([
       { path: 'edit-product/:id', element: <EditProduct /> },
       { path: 'profile', element: <UserProfile /> },
       { path: 'dashboard', element: <Dashboard /> },
-      { path: 'swap-requests', element: <SwapRequests /> },
-      { path: 'swap/:id', element: <SwapDetails /> },
+      { path: 'swap-hub', element: <SwapProtectedRoute><SwapHub /></SwapProtectedRoute> },
+      { path: 'swap-requests', element: <SwapProtectedRoute><SwapHub /></SwapProtectedRoute> },
+      { path: 'create-swap/:productId', element: <SwapProtectedRoute><CreateSwapOffer /></SwapProtectedRoute> },
+      { path: 'swap/:id', element: <SwapProtectedRoute><SwapDetails /></SwapProtectedRoute> },
       { path: 'digital-closet', element: <DigitalCloset /> },
       { path: 'style-feed', element: <StyleFeed /> },
       { path: 'my-listings', element: <MyListings /> },
       { path: 'cart', element: <Cart /> },
       { path: 'saved', element: <Wishlist /> },
       { path: 'checkout', element: <Checkout /> },
+      { path: 'wallet', element: <Wallet /> },
       { path: 'unauthorized', element: <Unauthorized /> },
       { path: '*', element: <NotFound /> },
     ],

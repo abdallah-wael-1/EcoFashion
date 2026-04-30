@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, AlertTriangle, ShieldCheck, Trash2, ShoppingCart } from 'lucide-react';
+import { X, AlertTriangle, ShieldCheck, Trash2, ShoppingCart } from '../../utils/icons';
 
 
 const ConfirmModal = ({

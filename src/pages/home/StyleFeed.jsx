@@ -1,32 +1,25 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import SectionTitle from '../../components/common/SectionTitle';
+import { Heart, ArrowRight, TrendingUp, Leaf, Target, Repeat2, Sparkles, Users, Eye, Plus, X } from '../../utils/icons';
 
-// ─── Design System Class Tokens ──────────────────────────────────────────────
-// Centralised so every section stays in sync when you change one place.
+// ─── Design System ────────────────────────────────────────────────────────────
 const ds = {
-  // Page / section backgrounds
-  pageBg:    'bg-gray-100 dark:bg-gray-900',
-  cardBg:    'bg-gray-50  dark:bg-gray-800',
-  modalBg:   'bg-gray-50  dark:bg-gray-800',
-  // Text
+  pageBg:        'bg-gray-100 dark:bg-gray-900',
+  cardBg:        'bg-gray-50  dark:bg-gray-800',
+  modalBg:       'bg-white dark:bg-gray-900',
   textPrimary:   'text-gray-900 dark:text-gray-100',
   textSecondary: 'text-gray-600 dark:text-gray-400',
   textMuted:     'text-gray-500 dark:text-gray-500',
-  // Borders
   border:        'border-gray-300 dark:border-gray-700',
   borderLight:   'border-gray-200 dark:border-gray-700',
-  // Interactive surfaces
-  surfaceHover:  'hover:bg-gray-200 dark:hover:bg-gray-700',
+  surfaceHover:  'hover:bg-gray-100 dark:hover:bg-gray-700',
   surfaceBase:   'bg-gray-200 dark:bg-gray-700',
-  // Inputs
-  inputBg:       'bg-white dark:bg-gray-700',
-  // Unselected pill / button
-  pillIdle: 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600',
+  inputBg:       'bg-white dark:bg-gray-800',
+  pillIdle:      'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600',
 };
 
-// Convenience: card wrapper classes
 const cardCls = `${ds.cardBg} border ${ds.border} rounded-xl`;
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -55,17 +48,14 @@ const MOCK_UPCYCLERS = [
   { id: 4, name: 'Vintage Vibes',     avatar: 'https://picsum.photos/seed/seller3/64/64',  items: 203, trustScore: 92 },
   { id: 5, name: 'Luxury Swap',       avatar: 'https://picsum.photos/seed/seller5/64/64',  items: 124, trustScore: 97 },
   { id: 6, name: 'Summer Style',      avatar: 'https://picsum.photos/seed/seller7/64/64',  items: 98,  trustScore: 93 },
-  { id: 7, name: 'Winter Wear',       avatar: 'https://picsum.photos/seed/seller9/64/64',  items: 167, trustScore: 96 },
-  { id: 8, name: 'Retro Fashion',     avatar: 'https://picsum.photos/seed/seller20/64/64', items: 145, trustScore: 91 },
 ];
 
 const MOCK_BOARDS = [
-  { id: 1, name: 'Summer Upcycle Inspo 🌿', creator: '@EcoCreations',     items: 42, images: ['1',  '2',  '3',  '4']  },
-  { id: 2, name: 'Streetwear Remix 🔥',     creator: '@DenimHead',         items: 38, images: ['7',  '11', '6',  '9']  },
-  { id: 3, name: 'Vintage Gems 💎',         creator: '@VintageVibes',      items: 56, images: ['3',  '8',  '15', '1']  },
-  { id: 4, name: 'Minimal Wardrobe ✨',     creator: '@SustainableStyle',  items: 29, images: ['4',  '10', '14', '13'] },
-  { id: 5, name: 'Y2K Revival 💕',          creator: '@SkirtCreator',      items: 67, images: ['6',  '12', '9',  '2']  },
-  { id: 6, name: 'Festival Fits 🎪',        creator: '@SummerStyle',       items: 34, images: ['8',  '15', '3',  '6']  },
+  { id: 1, name: 'Summer Upcycle Inspo 🌿', creator: '@EcoCreations',    items: 42, images: ['1','2','3','4']   },
+  { id: 2, name: 'Streetwear Remix 🔥',     creator: '@DenimHead',        items: 38, images: ['7','11','6','9']  },
+  { id: 3, name: 'Vintage Gems 💎',         creator: '@VintageVibes',     items: 56, images: ['3','8','15','1']  },
+  { id: 4, name: 'Minimal Wardrobe ✨',     creator: '@SustainableStyle', items: 29, images: ['4','10','14','13']},
+  { id: 5, name: 'Y2K Revival 💕',          creator: '@SkirtCreator',     items: 67, images: ['6','12','9','2']  },
 ];
 
 const MOCK_SWAPS = [
@@ -74,14 +64,98 @@ const MOCK_SWAPS = [
   { id: 3, location: 'Cairo, Heliopolis', date: 'Sat 25 Jan', items: 9,  swappers: 6  },
 ];
 
-// ─── Preferences Modal ────────────────────────────────────────────────────────
-const PreferencesModal = ({ isOpen, onClose, onSave }) => {
-  const [prefs, setPrefs] = useState(() => {
-    const saved = localStorage.getItem('ecofashion-preferences');
-    return saved
-      ? JSON.parse(saved)
-      : { sizes: ['M'], aesthetics: ['Vintage', 'Casual'], upcycleIntensity: 3, budget: 500, materials: ['Cotton', 'Denim'] };
-  });
+// ─── Confirm Delete Mini-Modal ────────────────────────────────────────────────
+const ConfirmDeleteModal = ({ isOpen, label, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      onClick={onCancel}
+    >
+      {/* Soft backdrop — doesn't black out the page, just dims slightly */}
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" />
+      <div
+        className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl px-6 py-5 w-72 border border-gray-100 dark:border-gray-700"
+        style={{ animation: 'miniModalIn 0.18s cubic-bezier(0.34,1.56,0.64,1)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+            <span className="text-base">🗑</span>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">Remove preference?</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              Remove <span className="font-semibold text-gray-700 dark:text-gray-300">"{label}"</span> from your feed filters
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+          >
+            Keep it
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold bg-red-500 hover:bg-red-600 text-white transition-colors cursor-pointer"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+      <style>{`
+        @keyframes miniModalIn {
+          from { opacity:0; transform: scale(0.85) translateY(6px); }
+          to   { opacity:1; transform: scale(1)    translateY(0);    }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// ─── Preferences Modal (redesigned) ──────────────────────────────────────────
+const STEPS = [
+  { key: 'sizes',            label: 'Size',       icon: '👗', desc: 'Find items that fit perfectly'        },
+  { key: 'aesthetics',       label: 'Aesthetic',  icon: '✨', desc: 'Styles that speak to you'             },
+  { key: 'upcycleIntensity', label: 'Upcycle',    icon: '♻️', desc: 'How eco-forward do you want to go?'  },
+  { key: 'budget',           label: 'Budget',     icon: '💰', desc: 'Your max spend per item'              },
+  { key: 'materials',        label: 'Materials',  icon: '🧵', desc: 'Preferred fabrics'                   },
+];
+
+const SIZES      = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const AESTHETICS = ['Vintage', 'Streetwear', 'Minimal', 'Boho', 'Y2K', 'Cottagecore', 'Formal', 'Casual'];
+const MATERIALS  = ['Cotton', 'Linen', 'Denim', 'Silk', 'Wool', 'Cashmere', 'Recycled', 'Canvas'];
+
+const defaultPrefs = { sizes: ['M'], aesthetics: ['Vintage'], upcycleIntensity: 3, budget: 500, materials: ['Cotton', 'Denim'] };
+
+const PreferencesModal = ({ isOpen, onClose, onSave, initialPreferences }) => {
+  const [activeStep, setActiveStep] = useState(0);
+  const [prefs, setPrefs] = useState(initialPreferences || defaultPrefs);
+
+  useEffect(() => {
+    if (initialPreferences) setPrefs(initialPreferences);
+  }, [initialPreferences, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleEsc);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+      document.body.style.overflow = '';
+    };
+  }, [isOpen, onClose]);
+
+  const toggle = (field, value) => {
+    const current = prefs[field] || [];
+    setPrefs(p => ({
+      ...p,
+      [field]: current.includes(value) ? current.filter(v => v !== value) : [...current, value],
+    }));
+  };
 
   const handleSave = () => {
     localStorage.setItem('ecofashion-preferences', JSON.stringify(prefs));
@@ -92,62 +166,98 @@ const PreferencesModal = ({ isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className={`${ds.modalBg} rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto`}>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      style={{ animation: 'backdropIn 0.2s ease' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
 
-        {/* Header */}
-        <div className={`sticky top-0 ${ds.modalBg} border-b ${ds.border} px-6 py-4 flex items-center justify-between`}>
-          <h2 className={`text-2xl font-bold ${ds.textPrimary}`}>Tune Your Feed</h2>
+      <div
+        className="relative bg-white dark:bg-gray-900 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-gray-100 dark:border-gray-800"
+        style={{ animation: 'modalSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ── Header ── */}
+        <div className="px-8 pt-7 pb-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Tune Your Feed</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Personalize what you see</p>
+          </div>
           <button
             onClick={onClose}
-            className={`p-2 rounded-lg ${ds.surfaceHover} ${ds.textSecondary} transition-colors cursor-pointer`}
+            className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"
           >
-            ✕
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-8">
+        {/* ── Step tabs ── */}
+        <div className="px-8 py-4 flex gap-2 overflow-x-auto border-b border-gray-100 dark:border-gray-800">
+          {STEPS.map((step, i) => (
+            <button
+              key={step.key}
+              onClick={() => setActiveStep(i)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer flex-shrink-0 ${
+                activeStep === i
+                  ? 'bg-green-600 text-white shadow-md shadow-green-200 dark:shadow-green-950'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              <span>{step.icon}</span>
+              <span>{step.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* ── Content ── */}
+        <div className="flex-1 overflow-y-auto px-8 py-7">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{STEPS[activeStep].desc}</p>
 
           {/* Sizes */}
-          <div>
-            <h3 className={`text-lg font-semibold ${ds.textPrimary} mb-4`}>Your Sizes</h3>
-            <div className="space-y-3">
-              {['Tops', 'Bottoms', 'Shoes'].map((type) => (
+          {activeStep === 0 && (
+            <div className="space-y-6">
+              {['Tops', 'Bottoms', 'Shoes'].map(type => (
                 <div key={type}>
-                  <label className={`text-sm font-medium ${ds.textSecondary} mb-2 block`}>{type}</label>
-                  <select
-                    value={prefs.sizes?.[0] || 'M'}
-                    onChange={(e) => setPrefs({ ...prefs, sizes: [e.target.value] })}
-                    className={`w-full px-4 py-2 rounded-lg border ${ds.border} ${ds.inputBg} ${ds.textPrimary} focus:outline-none focus:ring-2 focus:ring-green-600`}
-                  >
-                    {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((s) => <option key={s}>{s}</option>)}
-                  </select>
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">{type}</p>
+                  <div className="grid grid-cols-6 gap-2">
+                    {SIZES.map(size => {
+                      const active = prefs.sizes?.includes(size);
+                      return (
+                        <button
+                          key={size}
+                          onClick={() => toggle('sizes', size)}
+                          className={`py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 cursor-pointer ${
+                            active
+                              ? 'bg-green-600 text-white shadow-md shadow-green-100 dark:shadow-green-950 scale-105'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
+          )}
 
           {/* Aesthetics */}
-          <div>
-            <h3 className={`text-lg font-semibold ${ds.textPrimary} mb-4`}>Your Aesthetic</h3>
-            <div className="flex flex-wrap gap-2">
-              {['Vintage', 'Streetwear', 'Minimal', 'Boho', 'Y2K', 'Cottagecore', 'Formal', 'Casual'].map((aes) => {
-                const selected = (prefs.aesthetics || []).includes(aes);
+          {activeStep === 1 && (
+            <div className="flex flex-wrap gap-2.5">
+              {AESTHETICS.map(aes => {
+                const active = (prefs.aesthetics || []).includes(aes);
                 return (
                   <button
                     key={aes}
-                    onClick={() => {
-                      const current = prefs.aesthetics || [];
-                      setPrefs({
-                        ...prefs,
-                        aesthetics: current.includes(aes)
-                          ? current.filter((a) => a !== aes)
-                          : [...current, aes],
-                      });
-                    }}
-                    className={`px-4 py-2 rounded-full font-medium transition-colors cursor-pointer ${
-                      selected ? 'bg-green-600 text-white' : ds.pillIdle
+                    onClick={() => toggle('aesthetics', aes)}
+                    className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-150 cursor-pointer ${
+                      active
+                        ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md shadow-green-100 dark:shadow-green-950 scale-105'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                   >
                     {aes}
@@ -155,84 +265,174 @@ const PreferencesModal = ({ isOpen, onClose, onSave }) => {
                 );
               })}
             </div>
-          </div>
+          )}
 
           {/* Upcycle Intensity */}
-          <div>
-            <h3 className={`text-lg font-semibold ${ds.textPrimary} mb-4`}>Upcycle Intensity</h3>
-            <div className="flex items-center gap-4">
+          {activeStep === 2 && (
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <div className="relative">
+                  <input
+                    type="range" min="1" max="5"
+                    value={prefs.upcycleIntensity || 3}
+                    onChange={(e) => setPrefs(p => ({ ...p, upcycleIntensity: +e.target.value }))}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-green-600"
+                  />
+                  <div className="flex justify-between mt-2 px-0.5">
+                    {['Any', '', 'Mix', '', 'Only eco'].map((l, i) => (
+                      <span key={i} className="text-xs text-gray-400 dark:text-gray-600">{l}</span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Visual indicator */}
+                <div className="flex justify-center gap-2 py-4">
+                  {[1,2,3,4,5].map(i => (
+                    <div
+                      key={i}
+                      className={`transition-all duration-200 ${
+                        i <= (prefs.upcycleIntensity || 3)
+                          ? 'text-2xl scale-110'
+                          : 'text-xl opacity-25 grayscale'
+                      }`}
+                    >🌱</div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl bg-green-50 dark:bg-green-950/30 border border-green-100 dark:border-green-900 p-4 text-center">
+                  <p className="text-sm font-semibold text-green-800 dark:text-green-300">
+                    {prefs.upcycleIntensity === 5 ? '🌿 Only heavily upcycled pieces!'
+                     : prefs.upcycleIntensity === 4 ? '🌿 Mostly upcycled'
+                     : prefs.upcycleIntensity === 3 ? '🌱 Good mix of regular and upcycled'
+                     : prefs.upcycleIntensity === 2 ? '🌱 Mostly regular, some upcycled'
+                     : '🌱 Any item works for me'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Budget */}
+          {activeStep === 3 && (
+            <div className="space-y-6">
+              <div className="text-center py-4">
+                <p className="text-5xl font-bold text-green-600 dark:text-green-400">
+                  EGP {(prefs.budget || 500).toLocaleString()}
+                </p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">maximum per item</p>
+              </div>
               <input
-                type="range" min="1" max="5"
-                value={prefs.upcycleIntensity || 3}
-                onChange={(e) => setPrefs({ ...prefs, upcycleIntensity: parseInt(e.target.value) })}
-                className="flex-1"
+                type="range" min="0" max="2000" step="50"
+                value={prefs.budget || 500}
+                onChange={(e) => setPrefs(p => ({ ...p, budget: +e.target.value }))}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-green-600"
               />
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <span key={i} className={`text-lg ${i <= (prefs.upcycleIntensity || 3) ? 'text-green-600' : 'text-gray-300 dark:text-gray-600'}`}>
-                    🌱
-                  </span>
+              <div className="flex justify-between text-xs text-gray-400 dark:text-gray-600 px-0.5">
+                <span>EGP 0</span>
+                <span>EGP 2,000</span>
+              </div>
+
+              {/* Budget range presets */}
+              <div className="grid grid-cols-4 gap-2 pt-2">
+                {[200, 500, 1000, 2000].map(b => (
+                  <button
+                    key={b}
+                    onClick={() => setPrefs(p => ({ ...p, budget: b }))}
+                    className={`py-2 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                      prefs.budget === b
+                        ? 'bg-green-600 text-white shadow-md'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    EGP {b.toLocaleString()}
+                  </button>
                 ))}
               </div>
             </div>
-            <p className={`text-xs ${ds.textMuted} mt-2`}>1 = Any item, 5 = Heavily upcycled only</p>
-          </div>
-
-          {/* Budget */}
-          <div>
-            <h3 className={`text-lg font-semibold ${ds.textPrimary} mb-4`}>Budget Range</h3>
-            <input
-              type="range" min="0" max="1000"
-              value={prefs.budget || 500}
-              onChange={(e) => setPrefs({ ...prefs, budget: parseInt(e.target.value) })}
-              className="w-full"
-            />
-            <p className={`text-sm ${ds.textSecondary} mt-2`}>Up to EGP {prefs.budget || 500}</p>
-          </div>
+          )}
 
           {/* Materials */}
-          <div>
-            <h3 className={`text-lg font-semibold ${ds.textPrimary} mb-4`}>Favorite Materials</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {['Cotton', 'Linen', 'Denim', 'Silk', 'Wool', 'Recycled'].map((mat) => (
-                <label key={mat} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={(prefs.materials || []).includes(mat)}
-                    onChange={() => {
-                      const current = prefs.materials || [];
-                      setPrefs({
-                        ...prefs,
-                        materials: current.includes(mat)
-                          ? current.filter((m) => m !== mat)
-                          : [...current, mat],
-                      });
-                    }}
-                    className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-green-600"
-                  />
-                  <span className={ds.textSecondary}>{mat}</span>
-                </label>
-              ))}
+          {activeStep === 4 && (
+            <div className="grid grid-cols-2 gap-3">
+              {MATERIALS.map(mat => {
+                const active = (prefs.materials || []).includes(mat);
+                return (
+                  <button
+                    key={mat}
+                    onClick={() => toggle('materials', mat)}
+                    className={`flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all duration-150 cursor-pointer ${
+                      active
+                        ? 'border-green-500 bg-green-50 dark:bg-green-950/30 dark:border-green-600'
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                      active ? 'bg-green-600 border-green-600' : 'border-gray-300 dark:border-gray-600'
+                    }`}>
+                      {active && (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className={`text-sm font-semibold ${active ? 'text-green-800 dark:text-green-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                      {mat}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className={`sticky bottom-0 ${ds.modalBg} border-t ${ds.border} px-6 py-4 flex gap-3`}>
-          <button
-            onClick={onClose}
-            className={`flex-1 px-6 py-3 rounded-lg border-2 ${ds.border} ${ds.textSecondary} font-semibold ${ds.surfaceHover} transition-colors cursor-pointer`}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 px-6 py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors cursor-pointer"
-          >
-            Save Preferences
-          </button>
+        {/* ── Footer ── */}
+        <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-4 bg-white dark:bg-gray-900">
+          {/* Step dots */}
+          <div className="flex gap-1.5">
+            {STEPS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveStep(i)}
+                className={`rounded-full transition-all duration-200 cursor-pointer ${
+                  i === activeStep ? 'w-5 h-2 bg-green-600' : 'w-2 h-2 bg-gray-200 dark:bg-gray-700'
+                }`}
+              />
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            {activeStep < STEPS.length - 1 ? (
+              <button
+                onClick={() => setActiveStep(s => s + 1)}
+                className="px-5 py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+              >
+                Next →
+              </button>
+            ) : (
+              <button
+                onClick={handleSave}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-green-600 to-emerald-500 text-white text-sm font-bold shadow-lg shadow-green-100 dark:shadow-green-950 hover:from-green-700 hover:to-emerald-600 transition-all cursor-pointer"
+              >
+                Save & Apply ✓
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes backdropIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes modalSlideIn {
+          from { opacity:0; transform: scale(0.95) translateY(12px); }
+          to   { opacity:1; transform: scale(1)    translateY(0);    }
+        }
+      `}</style>
     </div>
   );
 };
@@ -240,30 +440,18 @@ const PreferencesModal = ({ isOpen, onClose, onSave }) => {
 // ─── Quick View Modal ─────────────────────────────────────────────────────────
 const QuickViewModal = ({ item, isOpen, onClose, onAddToCart, onGoSwap, onGoDetails }) => {
   if (!isOpen || !item) return null;
-
   return (
-    <div
-      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto"
-      onClick={onClose}
-    >
-      <div
-        className={`${ds.modalBg} rounded-2xl max-w-2xl w-full my-8`}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className={`${ds.modalBg} rounded-2xl max-w-2xl w-full my-8`} onClick={(e) => e.stopPropagation()}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-
-          {/* Image */}
           <div className="flex flex-col gap-3">
             <img src={item.images[0]} alt={item.name} className="w-full rounded-xl object-cover h-96" />
             {item.isUpcycled && (
               <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 rounded-full text-sm font-semibold w-fit">
-                <span>♻</span>
-                <span>Upcycled</span>
+                <span>♻</span><span>Upcycled</span>
               </div>
             )}
           </div>
-
-          {/* Info */}
           <div className="space-y-4">
             <div>
               <h2 className={`text-3xl font-bold ${ds.textPrimary} mb-2`}>{item.name}</h2>
@@ -273,60 +461,28 @@ const QuickViewModal = ({ item, isOpen, onClose, onAddToCart, onGoSwap, onGoDeta
                 <span>⭐ {item.seller.trustScore}%</span>
               </div>
             </div>
-
-            {/* Price */}
             <div className="flex items-baseline gap-4 text-2xl">
               <span className={`font-bold ${ds.textPrimary}`}>EGP {item.price}</span>
-              {item.ecoCredits > 0 && (
-                <span className="text-lg text-green-600 dark:text-green-400 font-semibold">+{item.ecoCredits} 🌱</span>
-              )}
+              {item.ecoCredits > 0 && <span className="text-lg text-green-600 dark:text-green-400 font-semibold">+{item.ecoCredits} 🌱</span>}
             </div>
-
-            {/* Specs */}
             <div className={`grid grid-cols-3 gap-4 py-4 border-y ${ds.borderLight}`}>
-              {[
-                { label: 'Size',      value: item.size      },
-                { label: 'Material',  value: item.material  },
-                { label: 'Condition', value: item.condition },
-              ].map(({ label, value }) => (
+              {[{ label: 'Size', value: item.size }, { label: 'Material', value: item.material }, { label: 'Condition', value: item.condition }].map(({ label, value }) => (
                 <div key={label}>
                   <p className={`text-xs ${ds.textMuted} font-medium`}>{label}</p>
                   <p className={`text-sm font-semibold ${ds.textPrimary}`}>{value}</p>
                 </div>
               ))}
             </div>
-
-            {/* Carbon */}
             <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800">
-              <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                ♻ Buying this item saves <strong>6.2kg CO₂</strong> vs buying new
-              </p>
+              <p className="text-sm font-medium text-green-800 dark:text-green-300">♻ Buying this saves <strong>6.2kg CO₂</strong> vs buying new</p>
             </div>
-
-            {/* Buttons */}
             <div className="flex gap-3">
-              <button
-                onClick={() => onAddToCart(item)}
-                className="flex-1 px-6 py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors cursor-pointer"
-              >
-                Add to Cart
-              </button>
+              <button onClick={() => onAddToCart(item)} className="flex-1 px-6 py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors cursor-pointer">Add to Cart</button>
               {item.isSwappable && (
-                <button
-                  onClick={onGoSwap}
-                  className="flex-1 px-6 py-3 rounded-lg border-2 border-green-600 text-green-600 dark:text-green-400 font-semibold hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors cursor-pointer"
-                >
-                  Request Swap
-                </button>
+                <button onClick={onGoSwap} className="flex-1 px-6 py-3 rounded-lg border-2 border-green-600 text-green-600 dark:text-green-400 font-semibold hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors cursor-pointer">Request Swap</button>
               )}
             </div>
-
-            <button
-              onClick={onGoDetails}
-              className={`w-full px-6 py-2 rounded-lg border ${ds.border} ${ds.textSecondary} font-semibold ${ds.surfaceHover} transition-colors cursor-pointer`}
-            >
-              View Full Listing
-            </button>
+            <button onClick={onGoDetails} className={`w-full px-6 py-2 rounded-lg border ${ds.border} ${ds.textSecondary} font-semibold ${ds.surfaceHover} transition-colors cursor-pointer`}>View Full Listing</button>
           </div>
         </div>
       </div>
@@ -334,99 +490,277 @@ const QuickViewModal = ({ item, isOpen, onClose, onAddToCart, onGoSwap, onGoDeta
   );
 };
 
-// ─── Feed Card ────────────────────────────────────────────────────────────────
-const FeedCard = ({ item, onQuickView }) => {
+// ─── Smart Feed Card (Enhanced) ────────────────────────────────────────────────────────
+const SmartFeedCard = ({ item, onQuickView, onAddToCart, onRequestSwap }) => {
   const [isLiked, setIsLiked] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  
+  // Generate AI-style explanation
+  const getMatchExplanation = (item) => {
+    const reasons = [];
+    if (item.matchScore >= 80) reasons.push("Perfect aesthetic match");
+    else if (item.matchScore >= 60) reasons.push("Fits your style");
+    else reasons.push("Similar to your taste");
+    
+    if (item.isUpcycled) reasons.push("Eco-friendly choice");
+    if (item.price <= 200) reasons.push("Within your budget");
+    if (item.size === 'M' || item.size === 'S') reasons.push("Your preferred size");
+    
+    return reasons[Math.floor(Math.random() * reasons.length)];
+  };
 
   return (
     <div
-      className={`break-inside-avoid mb-4 ${cardCls} overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer`}
+      className={`group relative bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1 ${isHovered ? 'ring-2 ring-green-500/20' : ''}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={() => onQuickView(item)}
     >
-      {/* Image */}
-      <div className={`relative overflow-hidden ${ds.surfaceBase}`} style={{ aspectRatio: '1/1' }}>
-        <img
-          src={item.images[0]}
-          alt={item.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+      {/* Image Container */}
+      <div className="relative overflow-hidden" style={{ aspectRatio: '4/5' }}>
+        <img 
+          src={item.images[0]} 
+          alt={item.name} 
+          className={`w-full h-full object-cover transition-transform duration-500 ${isHovered ? 'scale-110' : 'scale-100'}`} 
         />
-
-        {/* Upcycled badge */}
-        <div className="absolute top-3 left-3 flex gap-2">
-          {item.isUpcycled && (
-            <div className="flex items-center gap-1 px-2.5 py-1 bg-green-100 dark:bg-green-900/70 text-green-800 dark:text-green-300 rounded-full text-xs font-semibold border border-green-300 dark:border-green-700">
-              <span>♻</span>
-              <span>Upcycled</span>
+        
+        {/* Eco Badge */}
+        {item.isUpcycled && (
+          <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1.5 bg-green-500/90 backdrop-blur-sm text-white rounded-full text-xs font-bold shadow-lg">
+            <Leaf size={12} />
+            <span>Eco</span>
+          </div>
+        )}
+        
+        {/* Quick Actions (appear on hover) */}
+        {isHovered && (
+          <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsLiked(!isLiked); }}
+              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+            >
+              <Heart size={16} className={isLiked ? 'fill-red-500 text-red-500' : 'text-gray-600'} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onQuickView(item); }}
+              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+            >
+              <Eye size={16} className="text-gray-600" />
+            </button>
+          </div>
+        )}
+        
+        {/* Match Score Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+          <div className="flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <Target size={14} />
+              <span className="text-sm font-bold">{item.matchScore}% Match</span>
             </div>
-          )}
-        </div>
-
-        {/* Like */}
-        <div className="absolute bottom-3 right-3 flex items-center gap-2 bg-white/90 dark:bg-gray-900/80 rounded-full px-3 py-1.5">
-          <button
-            onClick={(e) => { e.stopPropagation(); setIsLiked(!isLiked); }}
-            className="text-lg transition-transform hover:scale-125"
-          >
-            {isLiked ? '❤️' : '🤍'}
-          </button>
-          <span className={`text-sm font-medium ${ds.textSecondary}`}>{item.likes}</span>
-        </div>
-      </div>
-
-      {/* Info */}
-      <div className="p-4 space-y-2">
-        {/* Seller */}
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1.5">
-            <img src={item.seller.avatar} alt={item.seller.name} className="h-5 w-5 rounded-full" />
-            <span className={ds.textSecondary}>@{item.seller.name.split(' ')[0].toLowerCase()}</span>
+            <div className="text-xs opacity-80">{getMatchExplanation(item)}</div>
           </div>
-          <span className={ds.textMuted}>2h ago</span>
-        </div>
-
-        {/* Title */}
-        <h3 className={`font-semibold ${ds.textPrimary} text-sm line-clamp-2 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors`}>
-          {item.name}
-        </h3>
-        <p className={`text-xs ${ds.textMuted}`}>{item.material} • {item.size}</p>
-
-        {/* Match score */}
-        <div className="space-y-1 pt-1">
-          <div className="flex items-center justify-between">
-            <span className={`text-xs font-medium ${ds.textSecondary}`}>Match</span>
-            <span className="text-xs font-bold text-green-600 dark:text-green-400">{item.matchScore}%</span>
-          </div>
-          <div className={`h-1.5 ${ds.surfaceBase} rounded-full overflow-hidden`}>
-            <div
-              className="h-full bg-gradient-to-r from-green-400 to-green-600 transition-all duration-500"
-              style={{ width: `${item.matchScore}%` }}
+          <div className="mt-2 h-1.5 bg-white/20 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-green-400 to-green-500 transition-all duration-700" 
+              style={{ width: `${item.matchScore}%` }} 
             />
           </div>
         </div>
-
-        {/* Price & actions */}
-        <div className={`pt-3 border-t ${ds.borderLight} flex items-center justify-between`}>
-          <div>
-            <span className={`font-bold ${ds.textPrimary}`}>EGP {item.price}</span>
-            <span className="text-xs text-green-600 dark:text-green-400 font-medium ml-2">+{item.ecoCredits} 🌱</span>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); onQuickView(item); }}
-              className="px-2 py-1 rounded text-xs font-medium bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors cursor-pointer"
-            >
-              Buy
-            </button>
-            {item.isSwappable && (
-              <button
-                onClick={(e) => e.stopPropagation()}
-                className="px-2 py-1 rounded text-xs font-medium border border-green-600 dark:border-green-500 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors cursor-pointer"
-              >
-                Swap?
-              </button>
-            )}
+      </div>
+      
+      {/* Content */}
+      <div className="p-4 space-y-3">
+        {/* Title & Price */}
+        <div className="space-y-1">
+          <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-2 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+            {item.name}
+          </h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-bold text-gray-900 dark:text-white">EGP {item.price}</span>
+              {item.ecoCredits > 0 && (
+                <span className="text-xs font-semibold text-green-600 dark:text-green-400">+{item.ecoCredits} 🌱</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+              <span>{item.likes}</span>
+              <Heart size={12} className={isLiked ? 'fill-red-500 text-red-500' : ''} />
+            </div>
           </div>
         </div>
+        
+        {/* Why this item explanation */}
+        <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+          <p className="text-xs font-medium text-green-800 dark:text-green-300">
+            ✨ {getMatchExplanation(item)}
+          </p>
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <button
+            onClick={(e) => { e.stopPropagation(); onAddToCart(item); }}
+            className="flex-1 px-3 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-1"
+          >
+            <span>View</span>
+            <ArrowRight size={14} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsLiked(!isLiked); }}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Heart size={14} className={isLiked ? 'fill-red-500 text-red-500' : 'text-gray-600'} />
+          </button>
+          {item.isSwappable && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRequestSwap(item); }}
+              className="px-3 py-2 border-2 border-green-600 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors"
+            >
+              <Repeat2 size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Personalized Header Component ────────────────────────────────────────────────────────
+const PersonalizedHeader = ({ user, preferences, onOpenPrefs }) => {
+  const getPersonalizedMessage = () => {
+    if (!preferences) return "Let's build your style";
+    
+    const messages = [
+      `Picked for you, ${user?.name?.split(' ')[0]} 👀`,
+      `Your vibe today: ${preferences.aesthetics?.join(' x ') || 'Unique'} 🌿`,
+      `Based on your taste in ${preferences.materials?.slice(0, 2).join(' & ') || 'Fashion'}`,
+      `Curated for your ${preferences.aesthetics?.[0] || 'style'} aesthetic ✨`
+    ];
+    
+    return messages[Math.floor(Math.random() * messages.length)];
+  };
+
+  return (
+    <div className="text-center space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+          {getPersonalizedMessage()}
+        </h1>
+        <p className="text-lg text-gray-600 dark:text-gray-400">
+          {preferences 
+            ? `${preferences.aesthetics?.length || 0} styles • ${preferences.sizes?.length || 0} sizes • Budget: EGP ${preferences.budget || 500}`
+            : "Personalize your feed to see items that match your style"
+          }
+        </p>
+      </div>
+      
+      {!preferences && (
+        <button
+          onClick={onOpenPrefs}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+        >
+          <Sparkles size={18} />
+          <span>Let's build your style</span>
+        </button>
+      )}
+      
+      {preferences && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {preferences.aesthetics?.slice(0, 3).map(aes => (
+            <span key={aes} className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-xs font-semibold">
+              {aes}
+            </span>
+          ))}
+          <button
+            onClick={onOpenPrefs}
+            className="px-3 py-1 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-full text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            Edit preferences
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Story Layer Component ────────────────────────────────────────────────────────────────
+const StoryLayer = () => {
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Discover</h2>
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {/* Top Upcyclers */}
+        <div className="flex-shrink-0 space-y-2">
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Top Upcyclers</div>
+          <div className="flex gap-3">
+            {MOCK_UPCYCLERS.slice(0, 4).map(upcycler => (
+              <div key={upcycler.id} className="text-center space-y-1 cursor-pointer group">
+                <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-green-500 transition-all">
+                  <img src={upcycler.avatar} alt={upcycler.name} className="w-full h-full object-cover" />
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 truncate w-16">{upcycler.name.split(' ')[0]}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Style Boards */}
+        <div className="flex-shrink-0 space-y-2">
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Style Boards</div>
+          <div className="flex gap-3">
+            {MOCK_BOARDS.slice(0, 3).map(board => (
+              <div key={board.id} className="w-20 space-y-1 cursor-pointer group">
+                <div className="grid grid-cols-2 gap-0.5 rounded-lg overflow-hidden group-hover:ring-2 ring-green-500 transition-all">
+                  {board.images.slice(0, 4).map((img, i) => (
+                    <div key={i} className="w-5 h-5 bg-gray-200 dark:bg-gray-700" />
+                  ))}
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 truncate w-20">{board.name.split(' ')[0]}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Inspired by your taste */}
+        <div className="flex-shrink-0 space-y-2">
+          <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Inspired by you</div>
+          <div className="flex gap-2">
+            {['Vintage', 'Minimal', 'Eco'].map(tag => (
+              <span key={tag} className="px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-800 dark:text-green-300 rounded-full text-xs font-semibold whitespace-nowrap cursor-pointer hover:scale-105 transition-transform">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Smart Feed Section Component ────────────────────────────────────────────────────────
+const SmartFeedSection = ({ title, subtitle, icon: IconComponent, items, onQuickView, onAddToCart, onRequestSwap }) => {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white">
+          <IconComponent size={20} />
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{subtitle}</p>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {items.slice(0, 8).map(item => (
+          <SmartFeedCard
+            key={item.id}
+            item={item}
+            onQuickView={onQuickView}
+            onAddToCart={onAddToCart}
+            onRequestSwap={onRequestSwap}
+          />
+        ))}
       </div>
     </div>
   );
@@ -436,34 +770,69 @@ const FeedCard = ({ item, onQuickView }) => {
 const StyleFeed = () => {
   const navigate = useNavigate();
   const { user, addToCart } = useAppContext();
+
   const [preferences, setPreferences] = useState(() => {
     const saved = localStorage.getItem('ecofashion-preferences');
     return saved ? JSON.parse(saved) : null;
   });
-  const [showPrefsModal, setShowPrefsModal] = useState(false);
-  const [quickViewItem, setQuickViewItem] = useState(null);
+  const [showPrefsModal, setShowPrefsModal]   = useState(false);
+  const [quickViewItem, setQuickViewItem]     = useState(null);
   const [followedUpcyclers, setFollowedUpcyclers] = useState([]);
-  const [onboardingStep, setOnboardingStep] = useState(preferences ? 0 : 1);
+
+  // Confirm-delete state
+  const [confirmDelete, setConfirmDelete] = useState(null); // { field, value, label }
+
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(
+    () => localStorage.getItem('hasCompletedOnboarding') === 'true'
+  );
+  const [onboardingStep, setOnboardingStep] = useState(hasCompletedOnboarding ? 0 : 1);
+
+  // ── Apply prefs save from modal immediately to page tags ──
+  const handlePrefsSave = (prefs) => {
+    setPreferences(prefs);
+    localStorage.setItem('ecofashion-preferences', JSON.stringify(prefs));
+  };
+
+  // ── Tag removal with confirm ──
+  const requestRemoveTag = (field, value, label) => {
+    setConfirmDelete({ field, value, label });
+  };
+
+  const confirmRemoveTag = () => {
+    if (!confirmDelete) return;
+    const { field, value } = confirmDelete;
+    setPreferences(prev => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        [field]: Array.isArray(prev[field])
+          ? prev[field].filter(v => v !== value)
+          : prev[field],
+      };
+      localStorage.setItem('ecofashion-preferences', JSON.stringify(updated));
+      return updated;
+    });
+    setConfirmDelete(null);
+  };
 
   const feedItemsWithScores = useMemo(() => {
     if (!preferences) return MOCK_FEED_ITEMS;
     return MOCK_FEED_ITEMS.map((item) => {
       let score = 0;
-      if (preferences.sizes?.includes(item.size))              score += 30;
-      if (preferences.aesthetics?.includes(item.aesthetic))    score += 25;
-      if (item.price <= (preferences.budget || 500))           score += 20;
+      if (preferences.sizes?.includes(item.size))                   score += 30;
+      if (preferences.aesthetics?.includes(item.aesthetic))         score += 25;
+      if (item.price <= (preferences.budget || 500))                score += 20;
       if (item.upcycleLevel >= (preferences.upcycleIntensity || 1)) score += 15;
-      if (preferences.materials?.includes(item.material))      score += 10;
+      if (preferences.materials?.includes(item.material))           score += 10;
       return { ...item, matchScore: Math.min(score + ((item.id % 3) + 1), 99) };
     }).sort((a, b) => b.matchScore - a.matchScore);
   }, [preferences]);
 
-  // ── Unauthenticated view ──────────────────────────────────────────────────
+  // ── Unauthenticated ──────────────────────────────────────────────────────
   if (!user) {
     return (
-      <div className={`min-h-screen  flex items-center justify-center p-4`}>
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className="relative">
-          {/* Blurred ghost grid */}
           <div className="absolute inset-0 blur-sm opacity-20 pointer-events-none">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-8 max-w-6xl">
               {MOCK_FEED_ITEMS.slice(0, 8).map((item) => (
@@ -471,34 +840,16 @@ const StyleFeed = () => {
               ))}
             </div>
           </div>
-
-          {/* CTA card */}
           <div className={`${ds.cardBg} rounded-3xl shadow-2xl p-8 max-w-md mx-auto relative z-10 text-center space-y-6`}>
-              <div className="text-sm text-left space-y-1.5">
-                <SectionTitle 
-                title='Your Personal Style Feed'
-                subtitle='Sign in to unlock your personalized feed'
-                />
-                {['Items matched to your size', 'Your aesthetic preferences', 'EcoCredits tracking', 'Swap recommendations'].map((feat) => (
-                  <div key={feat} className="flex items-center gap-2">
-                    <span>✓</span>
-                    <span>{feat}</span>
-                  </div>
-                ))}
-              </div>
+            <div className="text-sm text-left space-y-1.5">
+              <SectionTitle title="Your Personal Style Feed" subtitle="Sign in to unlock your personalized feed" />
+              {['Items matched to your size', 'Your aesthetic preferences', 'EcoCredits tracking', 'Swap recommendations'].map(feat => (
+                <div key={feat} className="flex items-center gap-2"><span>✓</span><span>{feat}</span></div>
+              ))}
+            </div>
             <div className="flex gap-3">
-              <button
-                onClick={() => navigate('/login')}
-                className="flex-1 px-6 py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors cursor-pointer"
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => navigate('/register')}
-                className="flex-1 px-6 py-3 rounded-lg border-2 border-green-600 text-green-600 dark:text-green-400 font-semibold hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors cursor-pointer"
-              >
-                Create Account
-              </button>
+              <button onClick={() => navigate('/login')} className="flex-1 px-6 py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors cursor-pointer">Sign In</button>
+              <button onClick={() => navigate('/register')} className="flex-1 px-6 py-3 rounded-lg border-2 border-green-600 text-green-600 dark:text-green-400 font-semibold hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors cursor-pointer">Create Account</button>
             </div>
           </div>
         </div>
@@ -506,148 +857,75 @@ const StyleFeed = () => {
     );
   }
 
-  // ── Onboarding flow ───────────────────────────────────────────────────────
+  // ── Onboarding ───────────────────────────────────────────────────────────
   if (onboardingStep > 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className={`${ds.cardBg} rounded-3xl shadow-2xl p-8 max-w-md w-full space-y-8`}>
-
-          {/* Progress */}
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <h1 className={`text-2xl font-bold ${ds.textPrimary}`}>Set Up Your Feed</h1>
               <span className={`text-sm font-medium ${ds.textMuted}`}>Step {onboardingStep} of 4</span>
             </div>
             <div className="flex gap-2">
-              {[1, 2, 3, 4].map((step) => (
-                <div
-                  key={step}
-                  className={`h-2 flex-1 rounded-full ${step <= onboardingStep ? 'bg-green-600' : 'bg-gray-200 dark:bg-gray-700'}`}
-                />
+              {[1,2,3,4].map(step => (
+                <div key={step} className={`h-2 flex-1 rounded-full ${step <= onboardingStep ? 'bg-green-600' : 'bg-gray-200 dark:bg-gray-700'}`} />
               ))}
             </div>
           </div>
 
-          {/* Step 1 – Size */}
           {onboardingStep === 1 && (
             <div className="space-y-4">
-              <div>
-                <h2 className={`text-xl font-bold ${ds.textPrimary} mb-2`}>What's your size?</h2>
-                <p className={`text-sm ${ds.textSecondary}`}>This helps us find items that fit you</p>
-              </div>
+              <div><h2 className={`text-xl font-bold ${ds.textPrimary} mb-2`}>What's your size?</h2><p className={`text-sm ${ds.textSecondary}`}>This helps us find items that fit you</p></div>
               <div className="grid grid-cols-3 gap-2">
-                {['XS', 'S', 'M', 'L', 'XL', 'XXL'].map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => { setPreferences({ ...preferences, sizes: [size] }); setOnboardingStep(2); }}
-                    className={`px-4 py-2 rounded-lg ${ds.pillIdle} font-medium hover:bg-green-100 dark:hover:bg-green-900/40 hover:text-green-700 dark:hover:text-green-300 transition-colors cursor-pointer`}
-                  >
-                    {size}
-                  </button>
+                {SIZES.map(size => (
+                  <button key={size} onClick={() => { setPreferences({ ...preferences, sizes: [size] }); setOnboardingStep(2); }}
+                    className={`px-4 py-2 rounded-lg ${ds.pillIdle} font-medium transition-colors cursor-pointer`}>{size}</button>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Step 2 – Aesthetic */}
           {onboardingStep === 2 && (
             <div className="space-y-4">
-              <div>
-                <h2 className={`text-xl font-bold ${ds.textPrimary} mb-2`}>Your aesthetic?</h2>
-                <p className={`text-sm ${ds.textSecondary}`}>Select what speaks to your style</p>
-              </div>
+              <div><h2 className={`text-xl font-bold ${ds.textPrimary} mb-2`}>Your aesthetic?</h2><p className={`text-sm ${ds.textSecondary}`}>Select what speaks to your style</p></div>
               <div className="flex flex-wrap gap-2">
-                {['Vintage', 'Streetwear', 'Minimal', 'Boho', 'Y2K', 'Cottagecore', 'Formal', 'Casual'].map((aes) => {
+                {AESTHETICS.map(aes => {
                   const selected = (preferences?.aesthetics || []).includes(aes);
                   return (
-                    <button
-                      key={aes}
-                      onClick={() => {
-                        const current = preferences?.aesthetics || [];
-                        setPreferences({
-                          ...preferences,
-                          aesthetics: current.includes(aes) ? current.filter((a) => a !== aes) : [...current, aes],
-                        });
-                      }}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${
-                        selected ? 'bg-green-600 text-white' : ds.pillIdle
-                      }`}
-                    >
-                      {aes}
-                    </button>
+                    <button key={aes} onClick={() => { const c = preferences?.aesthetics || []; setPreferences({ ...preferences, aesthetics: c.includes(aes) ? c.filter(a => a !== aes) : [...c, aes] }); }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer ${selected ? 'bg-green-600 text-white' : ds.pillIdle}`}>{aes}</button>
                   );
                 })}
               </div>
             </div>
           )}
-
-          {/* Step 3 – Upcycle intensity */}
           {onboardingStep === 3 && (
             <div className="space-y-4">
-              <div>
-                <h2 className={`text-xl font-bold ${ds.textPrimary} mb-2`}>Upcycle intensity?</h2>
-                <p className={`text-sm ${ds.textSecondary}`}>How much do you love upcycled pieces?</p>
-              </div>
-              <div className="space-y-4">
-                <input
-                  type="range" min="1" max="5"
-                  value={preferences?.upcycleIntensity || 3}
-                  onChange={(e) => setPreferences({ ...preferences, upcycleIntensity: parseInt(e.target.value) })}
-                  className="w-full"
-                />
-                <div className="flex justify-center gap-1">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <span key={i} className={`text-2xl ${i <= (preferences?.upcycleIntensity || 3) ? '' : 'opacity-30'}`}>
-                      🌱
-                    </span>
-                  ))}
-                </div>
-                <p className={`text-xs ${ds.textMuted} text-center`}>
-                  {preferences?.upcycleIntensity === 5
-                    ? 'Only heavily upcycled pieces!'
-                    : preferences?.upcycleIntensity === 1
-                    ? 'Any item works for me'
-                    : 'Mix of regular and upcycled'}
-                </p>
+              <div><h2 className={`text-xl font-bold ${ds.textPrimary} mb-2`}>Upcycle intensity?</h2><p className={`text-sm ${ds.textSecondary}`}>How much do you love upcycled pieces?</p></div>
+              <input type="range" min="1" max="5" value={preferences?.upcycleIntensity || 3} onChange={(e) => setPreferences({ ...preferences, upcycleIntensity: +e.target.value })} className="w-full" />
+              <div className="flex justify-center gap-1">
+                {[1,2,3,4,5].map(i => <span key={i} className={`text-2xl ${i <= (preferences?.upcycleIntensity || 3) ? '' : 'opacity-30'}`}>🌱</span>)}
               </div>
             </div>
           )}
-
-          {/* Step 4 – Budget */}
           {onboardingStep === 4 && (
             <div className="space-y-4">
-              <div>
-                <h2 className={`text-xl font-bold ${ds.textPrimary} mb-2`}>Budget range?</h2>
-                <p className={`text-sm ${ds.textSecondary}`}>Max you'd spend on an item</p>
-              </div>
-              <div className="space-y-4">
-                <input
-                  type="range" min="0" max="1000"
-                  value={preferences?.budget || 500}
-                  onChange={(e) => setPreferences({ ...preferences, budget: parseInt(e.target.value) })}
-                  className="w-full"
-                />
-                <p className="text-center text-2xl font-bold text-green-600 dark:text-green-400">
-                  Up to EGP {preferences?.budget || 500}
-                </p>
-              </div>
+              <div><h2 className={`text-xl font-bold ${ds.textPrimary} mb-2`}>Budget range?</h2><p className={`text-sm ${ds.textSecondary}`}>Max you'd spend on an item</p></div>
+              <input type="range" min="0" max="2000" value={preferences?.budget || 500} onChange={(e) => setPreferences({ ...preferences, budget: +e.target.value })} className="w-full" />
+              <p className="text-center text-2xl font-bold text-green-600 dark:text-green-400">Up to EGP {preferences?.budget || 500}</p>
             </div>
           )}
 
-          {/* Navigation buttons */}
           <div className="flex gap-3">
             {onboardingStep > 1 && (
-              <button
-                onClick={() => setOnboardingStep(onboardingStep - 1)}
-                className={`flex-1 px-6 py-3 rounded-lg border ${ds.border} ${ds.textSecondary} font-semibold ${ds.surfaceHover} transition-colors cursor-pointer`}
-              >
-                Back
-              </button>
+              <button onClick={() => setOnboardingStep(onboardingStep - 1)} className={`flex-1 px-6 py-3 rounded-lg border ${ds.border} ${ds.textSecondary} font-semibold ${ds.surfaceHover} transition-colors cursor-pointer`}>Back</button>
             )}
             <button
               onClick={() => {
                 if (onboardingStep === 4) {
                   localStorage.setItem('ecofashion-preferences', JSON.stringify(preferences));
+                  localStorage.setItem('hasCompletedOnboarding', 'true');
+                  setHasCompletedOnboarding(true);
                   setOnboardingStep(0);
                 } else {
                   setOnboardingStep(onboardingStep + 1);
@@ -658,26 +936,33 @@ const StyleFeed = () => {
               {onboardingStep === 4 ? 'Create Feed' : 'Next'}
             </button>
           </div>
-
-          <button
-            onClick={() => setOnboardingStep(0)}
-            className={`w-full text-center text-sm ${ds.textMuted} hover:${ds.textSecondary} transition-colors cursor-pointer`}
-          >
-            Skip for now
-          </button>
+          <button onClick={() => setOnboardingStep(0)} className={`w-full text-center text-sm ${ds.textMuted} transition-colors cursor-pointer`}>Skip for now</button>
         </div>
       </div>
     );
   }
 
-  // ── Main feed ─────────────────────────────────────────────────────────────
   return (
-    <div className={` min-h-screen py-8`}>
-      {/* Modals */}
-      <PreferencesModal
-        isOpen={showPrefsModal}
-        onClose={() => setShowPrefsModal(false)}
-        onSave={(prefs) => setPreferences(prefs)}
+    <>
+      {/* ─── Personalized Header Component ──────────────────────────────────────────────────────────────── */}
+      <PersonalizedHeader 
+        user={user} 
+        preferences={preferences} 
+        onOpenPrefs={() => setShowPrefsModal(true)} 
+      />
+      {/* ─── Story Layer Component ──────────────────────────────────────────────────────────────── */}
+      <StoryLayer />
+      {/* ─── Smart Feed Section Component ──────────────────────────────────────────────────────── */}
+      <SmartFeedSection 
+        title="Your Feed" 
+        subtitle="Based on your style preferences" 
+        icon={Heart} 
+        items={feedItemsWithScores} 
+        onQuickView={setQuickViewItem} 
+        onAddToCart={addToCart} 
+        onRequestSwap={() => navigate('/swap-requests')} 
+        onSave={handlePrefsSave}
+        initialPreferences={preferences}
       />
       <QuickViewModal
         item={quickViewItem}
@@ -687,192 +972,75 @@ const StyleFeed = () => {
         onGoSwap={() => navigate('/swap-requests')}
         onGoDetails={() => navigate(`/product/${quickViewItem.id}`)}
       />
+      <ConfirmDeleteModal
+        isOpen={!!confirmDelete}
+        label={confirmDelete?.label}
+        onConfirm={confirmRemoveTag}
+        onCancel={() => setConfirmDelete(null)}
+      />
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 space-y-12">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 space-y-12">
 
-        {/* ── Header ───────────────────────────────────────────────────────── */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-            <SectionTitle
-              title="Your Style Feed "
-              subtitle="Based on your preferences · Updated 2h ago."
-              align="center"
-              size="md"
-            />
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowPrefsModal(true)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-lg border ${ds.border} ${ds.textSecondary} font-semibold ${ds.surfaceHover} transition-colors cursor-pointer`}
-              >
-                <span>⚙</span>
-                <span>Tune Feed</span>
-              </button>
-              <button
-                onClick={() => window.location.reload()}
-                className={`p-3 rounded-lg border ${ds.border} ${ds.textSecondary} ${ds.surfaceHover} transition-colors cursor-pointer`}
-              >
-                <span>🔄</span>
-              </button>
-            </div>
-          </div>
+        {/* ── Personalized Header ── */}
+        <PersonalizedHeader 
+          user={user} 
+          preferences={preferences} 
+          onOpenPrefs={() => setShowPrefsModal(true)} 
+        />
 
-          {/* Progress bar */}
-          <div className="space-y-2">
-            <div className={`h-1 ${ds.surfaceBase} rounded-full overflow-hidden`}>
-              <div className="h-full bg-green-600 rounded-full" style={{ width: '78%' }} />
-            </div>
-            <p className={`text-xs ${ds.textSecondary}`}>Your feed is 78% personalized — complete your profile</p>
-          </div>
-        </div>
+        {/* ── Story Layer ── */}
+        <StoryLayer />
 
-        {/* ── Preference Tags ───────────────────────────────────────────────── */}
+        {/* ── Smart Feed Sections ── */}
+        
+        {/* Trending Now */}
+        <SmartFeedSection
+          title="🔥 Trending Now"
+          subtitle="What's hot in the EcoFashion community right now"
+          icon={TrendingUp}
+          items={feedItemsWithScores.filter(item => item.likes > 300)}
+          onQuickView={setQuickViewItem}
+          onAddToCart={addToCart}
+          onRequestSwap={() => navigate('/swap-requests')}
+        />
+
+        {/* Best for the Planet */}
+        <SmartFeedSection
+          title="🌱 Best for the Planet"
+          subtitle="High EcoCredits items that make a real difference"
+          icon={Leaf}
+          items={feedItemsWithScores.filter(item => item.ecoCredits > 20)}
+          onQuickView={setQuickViewItem}
+          onAddToCart={addToCart}
+          onRequestSwap={() => navigate('/swap-requests')}
+        />
+
+        {/* Perfect Matches */}
         {preferences && (
-          <div className="overflow-x-auto">
-            <div className="flex gap-2 pb-2">
-              {preferences.sizes?.map((size) => (
-                <button
-                  key={size}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-700 text-sm font-medium whitespace-nowrap hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
-                >
-                  Size {size} <span className="cursor-pointer">×</span>
-                </button>
-              ))}
-              {preferences.aesthetics?.slice(0, 2).map((aes) => (
-                <button
-                  key={aes}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-700 text-sm font-medium whitespace-nowrap hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
-                >
-                  {aes} <span className="cursor-pointer">×</span>
-                </button>
-              ))}
-              <button
-                onClick={() => setShowPrefsModal(true)}
-                className={`px-4 py-2 rounded-full ${ds.pillIdle} text-sm font-medium whitespace-nowrap transition-colors`}
-              >
-                + Add Preference
-              </button>
-            </div>
-          </div>
+          <SmartFeedSection
+            title="🎯 Perfect Matches"
+            subtitle="Items that match your preferences perfectly"
+            icon={Target}
+            items={feedItemsWithScores.filter(item => item.matchScore >= 70)}
+            onQuickView={setQuickViewItem}
+            onAddToCart={addToCart}
+            onRequestSwap={() => navigate('/swap-requests')}
+          />
         )}
 
-        {/* ── Trending Upcyclers ────────────────────────────────────────────── */}
-        <div>
-          <h2 className={`text-2xl font-bold ${ds.textPrimary} mb-6`}>🔥 Trending Upcyclers</h2>
-          <div className="overflow-x-auto pb-4">
-            <div className="flex gap-4 min-w-full">
-              {MOCK_UPCYCLERS.map((upcycler) => (
-                <div
-                  key={upcycler.id}
-                  className={`flex-shrink-0 w-40 ${cardCls} p-4 text-center space-y-3 hover:shadow-md transition-shadow`}
-                >
-                  <img src={upcycler.avatar} alt={upcycler.name} className="w-16 h-16 rounded-full mx-auto object-cover" />
-                  <div>
-                    <p className={`font-semibold ${ds.textPrimary}`}>@{upcycler.name}</p>
-                    <p className={`text-xs ${ds.textMuted}`}>🌱 {upcycler.items} items</p>
-                    <p className={`text-xs ${ds.textMuted}`}>⭐ {upcycler.trustScore}% trust</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setFollowedUpcyclers(
-                        followedUpcyclers.includes(upcycler.id)
-                          ? followedUpcyclers.filter((id) => id !== upcycler.id)
-                          : [...followedUpcyclers, upcycler.id]
-                      );
-                    }}
-                    className={`w-full px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
-                      followedUpcyclers.includes(upcycler.id)
-                        ? 'bg-green-600 text-white'
-                        : `${ds.pillIdle}`
-                    }`}
-                  >
-                    {followedUpcyclers.includes(upcycler.id) ? 'Following ✓' : 'Follow'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Main Feed Grid ────────────────────────────────────────────────── */}
-        <div>
-          <h2 className={`text-2xl font-bold ${ds.textPrimary} mb-6`}>Just For You</h2>
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
-            {feedItemsWithScores.map((item) => (
-              <FeedCard key={item.id} item={item} onQuickView={setQuickViewItem} onLike={() => {}} />
-            ))}
-          </div>
-        </div>
-
-        {/* ── Style Boards ──────────────────────────────────────────────────── */}
-        <div>
-          <div className="mb-6">
-            <h2 className={`text-2xl font-bold ${ds.textPrimary}`}>✨ Style Boards You Might Like</h2>
-            <p className={ds.textSecondary}>Curated collections from the community</p>
-          </div>
-          <div className="overflow-x-auto pb-4">
-            <div className="flex gap-4 min-w-full">
-              {MOCK_BOARDS.map((board) => (
-                <div
-                  key={board.id}
-                  className={`flex-shrink-0 w-48 ${cardCls} overflow-hidden hover:shadow-md transition-shadow`}
-                >
-                  <div className="grid grid-cols-2 gap-1 aspect-square overflow-hidden">
-                    {board.images.slice(0, 4).map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={`https://picsum.photos/seed/${img}/100/100`}
-                        alt="board"
-                        className="w-full h-full object-cover"
-                      />
-                    ))}
-                  </div>
-                  <div className="p-4 space-y-2">
-                    <p className={`font-semibold ${ds.textPrimary} text-sm`}>{board.name}</p>
-                    <p className={`text-xs ${ds.textMuted}`}>{board.creator} · {board.items} items</p>
-                    <button
-                      onClick={() => navigate('/marketplace')}
-                      className="w-full px-3 py-2 rounded-lg bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 font-medium text-sm hover:bg-green-200 dark:hover:bg-green-900/60 transition-colors"
-                    >
-                      Follow Board
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Swap Meet ─────────────────────────────────────────────────────── */}
-        <div>
-          <div className="mb-6">
-            <h2 className={`text-2xl font-bold ${ds.textPrimary}`}>📍 Swap Meet Near You</h2>
-            <p className={ds.textSecondary}>In-person swaps in Cairo · No shipping needed</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {MOCK_SWAPS.map((swap) => (
-              <div key={swap.id} className={`${cardCls} p-6 hover:shadow-md transition-shadow space-y-4`}>
-                <div className="text-3xl">📍</div>
-                <div className="space-y-2">
-                  <p className={`font-semibold ${ds.textPrimary} text-lg`}>{swap.location}</p>
-                  <p className={`text-sm ${ds.textSecondary}`}>{swap.date}</p>
-                  <p className={`text-sm ${ds.textSecondary}`}>{swap.items} items listed</p>
-                  <p className={`text-sm ${ds.textSecondary}`}>{swap.swappers} swappers</p>
-                </div>
-                <button
-                  onClick={() => navigate('/swap-requests')}
-                  className="w-full px-4 py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition-colors"
-                >
-                  Join Swap Meet
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Swap Picks */}
+        <SmartFeedSection
+          title="🔄 Swap Picks"
+          subtitle="Items available for swapping in your area"
+          icon={Repeat2}
+          items={feedItemsWithScores.filter(item => item.isSwappable)}
+          onQuickView={setQuickViewItem}
+          onAddToCart={addToCart}
+          onRequestSwap={() => navigate('/swap-requests')}
+        />
 
       </div>
-    </div>
+    </>
   );
 };
 

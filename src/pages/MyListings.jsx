@@ -1,10 +1,30 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
+import { isActiveSeller } from "../utils/rolePermissions";
 
 const MyListings = () => {
   const navigate = useNavigate();
-  const { userProducts = [] } = useAppContext();
+  const { user, userProducts = [] } = useAppContext();
+
+  if (!isActiveSeller(user)) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-gray-950 py-16 px-4 sm:px-6">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Seller active role required</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Switch your active role to Seller from the dashboard role switcher to access listings.
+          </p>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="mt-5 inline-flex px-5 py-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors cursor-pointer"
+          >
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 py-16 px-4 sm:px-6">

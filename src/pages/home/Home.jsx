@@ -364,36 +364,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ── Newsletter ── */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-        <div className="mx-auto max-w-2xl text-center">
-          <SectionTitle
-            title="Stay Updated"
-            subtitle="Get tips on sustainable fashion, exclusive deals, and marketplace updates delivered to your inbox."
-          />
-          <form onSubmit={handleNewsletter} className="flex flex-col py-10 sm:flex-row gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={newsletter}
-              onChange={(e) => setNewsletter(e.target.value)}
-              className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
-            />
-            <button
-              type="submit"
-              className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold transition-all duration-200 shadow-[0_2px_8px_rgba(22,163,74,0.3)] hover:shadow-[0_4px_14px_rgba(22,163,74,0.4)] active:scale-[0.98] whitespace-nowrap cursor-pointer"
-            >
-              Subscribe
-            </button>
-          </form>
-          {newsletterMsg && (
-            <p className="text-sm mt-3 text-green-600 dark:text-green-400">{newsletterMsg}</p>
-          )}
-          <p className="text-xs text-gray-500 dark:text-gray-500 mt-4">
-            We respect your privacy. Unsubscribe at any time.
-          </p>
-        </div>
-      </section>
+
 
     </div>
   );

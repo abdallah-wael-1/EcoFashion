@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAppContext } from '../../context/AppContext';
 // Mock swap data — in production, receive via route state or props
 const MOCK_SWAP = {
   id: 1,
@@ -196,6 +197,7 @@ const BalanceIndicator = ({ offeredValue, requestedValue }) => {
 };
 
 export default function SwapDetails({ swap: propSwap, onBack }) {
+  const { addTransaction, addNotification } = useAppContext();
   const swap = propSwap ?? MOCK_SWAP;
   const [action, setAction] = useState(null); // null | 'accepted' | 'declined' | 'countering'
   const [counterNote, setCounterNote] = useState('');
@@ -205,6 +207,24 @@ export default function SwapDetails({ swap: propSwap, onBack }) {
     if (!counterNote.trim()) return;
     setSubmitted(true);
     setTimeout(() => setAction('countered'), 600);
+  };
+
+  const handleAcceptSwap = () => {
+    setAction('accepted');
+    
+    // Add wallet transaction for completed swap
+    const transaction = addTransaction({
+      type: 'credit',
+      amount: 0, // No money for swaps
+      title: `Swap completed: ${swap.itemOffered.name} for ${swap.itemRequested.name}`
+    });
+
+    // Add notification
+    addNotification({
+      title: 'Swap completed!',
+      message: `Successfully swapped ${swap.itemOffered.name} for ${swap.itemRequested.name}`,
+      type: 'swap',
+    });
   };
 
   return (
@@ -281,7 +301,7 @@ export default function SwapDetails({ swap: propSwap, onBack }) {
             <h3 className="font-bold text-gray-900 dark:text-white mb-4">Your Response</h3>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => setAction('accepted')}
+                onClick={handleAcceptSwap}
                 className="flex-1 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all duration-200 shadow-sm hover:shadow-emerald-200 dark:hover:shadow-none cursor-pointer"
               >
                 ✓ Accept Swap

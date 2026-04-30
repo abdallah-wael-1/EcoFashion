@@ -2,21 +2,20 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAppContext } from "../../context/AppContext";
 
-const MOCK_ACCOUNTS = {
-  "admin@ecofashion.com": {
-    role: "admin", name: "Admin", ecoCredits: 999, trustScore: 5.0,
-    roles: ["buyer", "seller", "creator"],
-    canBuy: true, canSell: true, canCreate: true,
-  },
-  "seller@test.com": {
-    role: "member", name: "Seller Test", ecoCredits: 340, trustScore: 4.7,
-    roles: ["buyer", "seller"],
-    canBuy: true, canSell: true, canCreate: false,
-  },
-  "buyer@test.com": {
-    role: "member", name: "Buyer Test", ecoCredits: 80, trustScore: 4.2,
-    roles: ["buyer"],
-    canBuy: true, canSell: false, canCreate: false,
+const ADMIN_ACCOUNT = {
+  email: "admin@ecofashion.com",
+  password: "admin123",
+  profile: {
+    role: "admin",
+    name: "Platform Admin",
+    ecoCredits: 999,
+    trustScore: 100,
+    roles: ["buyer", "seller", "creator", "swapper"],
+    activeRole: "seller",
+    canBuy: true,
+    canSell: true,
+    canCreate: true,
+    avatar: null,
   },
 };
 
@@ -53,27 +52,38 @@ const Login = () => {
       const key = email.toLowerCase();
       const savedAccounts = JSON.parse(localStorage.getItem("eco_accounts") || "{}");
       const savedAccount = savedAccounts[key];
-      const mockAccount = MOCK_ACCOUNTS[key];
+      const isAdminEmail = key === ADMIN_ACCOUNT.email;
 
       if (savedAccount) {
-        const loggedUser = { ...savedAccount };
+        const roles = Array.isArray(savedAccount.roles) ? savedAccount.roles : ['buyer'];
+        const preferredRole =
+          roles.includes(savedAccount.activeRole)
+            ? savedAccount.activeRole
+            : (typeof savedAccount.role === 'string' && roles.includes(savedAccount.role.toLowerCase())
+              ? savedAccount.role.toLowerCase()
+              : roles[0]);
+
+        const loggedUser = {
+          ...savedAccount,
+          activeRole: preferredRole,
+        };
         delete loggedUser.password;
         setUser(loggedUser);
         setEcoCredits(loggedUser.ecoCredits);
         setTrustScore(loggedUser.trustScore);
         navigate("/dashboard", { replace: true });
-      } else if (mockAccount) {
+      } else if (isAdminEmail) {
+        if (password !== ADMIN_ACCOUNT.password) {
+          setLoginErr("Invalid admin credentials.");
+          setIsSubmitting(false);
+          return;
+        }
+
         const loggedUser = {
-          name: mockAccount.name,
+          ...ADMIN_ACCOUNT.profile,
+          password: undefined,
+          name: ADMIN_ACCOUNT.profile.name,
           email: key,
-          role: mockAccount.role,
-          roles: mockAccount.roles,
-          canBuy: mockAccount.canBuy,
-          canSell: mockAccount.canSell,
-          canCreate: mockAccount.canCreate,
-          ecoCredits: mockAccount.ecoCredits,
-          trustScore: mockAccount.trustScore,
-          avatar: null,
         };
         setUser(loggedUser);
         setEcoCredits(loggedUser.ecoCredits);
@@ -125,18 +135,10 @@ const Login = () => {
           )}
 
           <div className="mb-5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-3 transition-colors">
-            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2"> Test accounts (any password):</p>
-            <div className="space-y-1.5">
-              {Object.entries(MOCK_ACCOUNTS).map(([mail, data]) => (
-                <button key={mail} type="button" onClick={() => { setEmail(mail); clearError("email"); }}
-                  className="flex w-full items-center gap-2 text-left text-xs text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors cursor-pointer">
-                  <span className="font-mono flex-1 truncate">{mail}</span>
-                  <span className="shrink-0 text-gray-500 dark:text-gray-500">
-                    {data.role === "admin" ? " Admin" : ` ${data.roles.map(r => r.charAt(0).toUpperCase() + r.slice(1)).join("+")}`}
-                  </span>
-                </button>
-              ))}
-            </div>
+            <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">Admin access</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Use <span className="font-mono">admin@ecofashion.com</span> with password <span className="font-mono">admin123</span>.
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">

@@ -19,6 +19,7 @@ const Register = () => {
     { id: "buyer", label: " Buyer", desc: "Purchase sustainable fashion" },
     { id: "seller", label: " Seller", desc: "Sell your preloved items" },
     { id: "creator", label: " Creator", desc: "Upcycle & create new designs" },
+    { id: "swapper", label: " Swapper", desc: "Exchange items with other users" },
   ];
 
   const validate = () => {
@@ -26,6 +27,7 @@ const Register = () => {
     if (!name.trim()) e.name = "Full name is required";
     if (!email.trim()) e.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Invalid email";
+    else if (email.toLowerCase() === "admin@ecofashion.com") e.email = "This email is reserved for admin access";
     if (!password.trim()) e.password = "Password is required";
     else if (password.length < 6) e.password = "Password must be at least 6 characters";
     if (!selectedRoles.length) e.roles = "Select at least one role";
@@ -59,9 +61,7 @@ const Register = () => {
         email: key,
         password,
         roles: selectedRoles,
-        canBuy: selectedRoles.includes("buyer"),
-        canSell: selectedRoles.includes("seller"),
-        canCreate: selectedRoles.includes("creator"),
+        activeRole: selectedRoles[0] || 'buyer',
         ecoCredits: 50,
         trustScore: 4.0,
         avatar: null,

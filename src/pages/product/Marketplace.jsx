@@ -8,7 +8,8 @@ const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const MATERIALS = ['Cotton', 'Polyester', 'Wool', 'Denim', 'Silk', 'Linen', 'Recycled', 'Leather', 'Canvas', 'Cashmere'];
 
 const Marketplace = () => {
-  const { products } = useAppContext();
+  const { products, user } = useAppContext();
+  const [activeTab, setActiveTab] = useState('buy'); // 'buy' or 'swap'
   const [filters, setFilters] = useState({
     search: '',
     category: 'All',
@@ -39,6 +40,12 @@ const Marketplace = () => {
   // Filtering logic
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      // Tab-based filtering
+      const matchesTab = activeTab === 'buy' || (activeTab === 'swap' && product.isSwappable);
+      
+      // For swap tab, exclude user's own products
+      const matchesOwnership = activeTab !== 'swap' || product.seller?.name !== user?.name;
+
       const matchesSearch =
         product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
         product.description.toLowerCase().includes(filters.search.toLowerCase());
@@ -61,6 +68,8 @@ const Marketplace = () => {
       const matchesTopRated = !filters.topRatedOnly || (product.seller.trustScore >= 95);
 
       return (
+        matchesTab &&
+        matchesOwnership &&
         matchesSearch &&
         matchesCategory &&
         matchesCondition &&
@@ -72,7 +81,7 @@ const Marketplace = () => {
         matchesTopRated
       );
     });
-  }, [filters, products]);
+  }, [filters, products, activeTab, user]);
 
   // Sorting logic
   const sortedProducts = useMemo(() => {
@@ -163,7 +172,9 @@ const Marketplace = () => {
       <div className="border-b border-gray-200 dark:border-gray-800  top-16 z-40"> 
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
             <SectionTitle title="Marketplace" subtitle="Discover sustainable fashion that doesn't cost the earth." />
-          <div className="flex items-center justify-between gap-4">
+            
+            
+            <div className="flex items-center justify-between gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="md:hidden flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"

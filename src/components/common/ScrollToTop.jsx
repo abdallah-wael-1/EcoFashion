@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronUp } from "lucide-react";
+import { ChevronUp } from '../../utils/icons';
 
 export default function ScrollToTop({ showAfter = 300 }) {
   const [visible, setVisible] = useState(false);

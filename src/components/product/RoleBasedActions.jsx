@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
+import { isBuyer, isSeller, isCreator, isSwapper } from '../../utils/rolePermissions';
 
 const RoleBasedActions = ({ product, className = "" }) => {
   const navigate = useNavigate();
@@ -10,10 +11,10 @@ const RoleBasedActions = ({ product, className = "" }) => {
   const saved = wishlist.some((item) => item.id === product.id);
   const isOwner = product.seller?.name === user.name;
   
-  // Separate role checks - NO overlap
-  const isBuyer = user.canBuy;
-  const isSeller = user.canSell;
-  const isCreator = user.canCreate;
+  const buyer = user.activeRole === 'buyer';
+  const seller = isSeller(user);
+  const creator = user.activeRole === 'creator';
+  const swapper = user.activeRole === 'swapper';
 
   const handleAddToCart = () => addToCart(product);
   const handleToggleWishlist = () => toggleWishlist(product);
@@ -23,7 +24,7 @@ const RoleBasedActions = ({ product, className = "" }) => {
   return (
     <div className={`flex flex-wrap gap-3 ${className}`}>
       {/* BUYER ACTIONS - Commerce focused */}
-      {isBuyer && !isOwner && (
+      {buyer && !isOwner && (
         <>
           <button 
             onClick={handleAddToCart}
@@ -37,10 +38,10 @@ const RoleBasedActions = ({ product, className = "" }) => {
           >
             {saved ? 'Remove Wishlist' : 'Add Wishlist'}
           </button>
-          {product.isSwappable && (
+          {product.isSwappable && swapper && (
             <button 
-              onClick={() => navigate('/swap-requests')}
-              className="px-5 py-2.5 rounded-lg border border-green-600 text-green-600 hover:bg-green-50 cursor-pointer transition-colors"
+              onClick={() => navigate(`/create-swap/${product.id}`)}
+              className="px-5 py-2.5 rounded-lg border border-purple-600 text-purple-600 hover:bg-purple-50 cursor-pointer transition-colors"
             >
               Request Swap
             </button>
@@ -49,7 +50,7 @@ const RoleBasedActions = ({ product, className = "" }) => {
       )}
 
       {/* SELLER ACTIONS - Commerce focused, OWN items only */}
-      {isSeller && isOwner && (
+      {seller && isOwner && (
         <button 
           onClick={handleEdit}
           className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
@@ -59,7 +60,7 @@ const RoleBasedActions = ({ product, className = "" }) => {
       )}
 
       {/* CREATOR ACTIONS - Transformation focused, NOT OWN items only */}
-      {isCreator && !isOwner && (
+      {creator && !isOwner && (
         <button 
           onClick={handleTransform}
           className="px-5 py-2.5 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 cursor-pointer transition-colors"
